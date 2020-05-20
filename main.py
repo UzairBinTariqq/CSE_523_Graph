@@ -5,6 +5,7 @@ from flask import Flask
 from flask import render_template
 from flask import request
 from flask import jsonify
+from flask_cors import CORS, cross_origin
 import boto3
 
 import pandas as pd
@@ -32,12 +33,24 @@ import matplotlib
 
 import warnings
 warnings.filterwarnings("ignore")
+from config import ACCESS_KEY,SECRET_KEY
+
+data_ink_ratio = None
+background_shade = None
 
 app = Flask(__name__)
+cors = CORS(app)
 
-# original_data = pandas.read_csv('players_2020_sample.csv')
-# original_data = original_data.fillna(0)
+app.secret_key = 'some_random_key'
+bucket_name = "523-testimg"
+app.config['CORS_HEADERS'] = 'Content-Type'
 
+s3 = boto3.client(
+   "s3",
+   aws_access_key_id=ACCESS_KEY,
+   aws_secret_access_key=SECRET_KEY
+)
+bucket_resource = s3
 # ==========================================
 #           Load particular files
 # ==========================================
@@ -352,12 +365,7 @@ def template():
 @app.route('/chart_data', methods=['POST'])
 def chart_data():
     try:
-        file = request.files['myFile']
-        filename = secure_filename(file.filename)
-        file.save(os.path.join('./static/images', filename))
-        # req_data = request.get_json()
 
-        data_ink_ratio, background_shade = calculate_data_ink('./static/images/' + filename)
         data = testing_aws_and_model('./data/testing_charts/test_01.json')
 
         data['data_ink_ratio_value'] = data_ink_ratio
@@ -402,35 +410,70 @@ def chart_data():
         data['spacing_score'] = (data['x_spread_ratio_score'] + data['y_spread_ratio_score']) / 2
 
         _all_score = data['data_ink_ratio_score'] + ((data['x_spread_ratio_score'] + data['y_spread_ratio_score']) / 2) + data['background_score'] + data['chart_elem_score']
-
         data['overall_score'] = round((_all_score / 400) * 100)
 
     except:
         e = sys.exc_info()
     return json.dumps(data)
 
+  
+@app.route('/save_local', methods=['POST'])
+def upload_local():
+
+       global data_ink_ratio
+       global background_shade
+
+       file = request.files['img']
+       filename = secure_filename(file.filename)
+       file.save(os.path.join('./static/images', filename))
+
+       data_ink_ratio, background_shade = calculate_data_ink('./static/images/' + filename)
+       print(data_ink_ratio, background_shade)
+
+       return 'saved local'
+
 @app.route('/upload', methods=['POST'])
 def upload():
-    try:
-        # req_data = request.get_json()
 
-        # if request.method == "POST":
-        #   if request.files:
-        #       image = request.files["image"] 
-        #   s3 = boto3.resource('s3')
-        #   s3.Bucket('523-testimg').put_object(key='img_test_flask', Body=request.files['image'] )
+       if request.method == "POST":
+        try:
+            img = request.files['img']
+            filename = ''
+            if img:
+                filename = secure_filename(img.filename)
+                img.save(filename)
+                bucket_resource.upload_file(
+                    Bucket = bucket_name,
+                    Filename=filename,
+                    Key=filename
+                )
+                return 'Uploaded'
+        except Exception as e:
+            return (str(e))
+        return render_template("index.html")
 
-          if request.method == "POST":
-              f = request.files['image']
-              # f.save(os.path.join(UPLOAD_FOLDER, f.filename))
-              upload_file(f"uploads/{f.filename}", '523-testimg')
+@app.route('/recog', methods=['POST'])
+def lambda_handler():
 
-              # return redirect("/storage")
-          
-    except:
-        e = sys.exc_info()
-    # return json.dumps(data)
-    return 'File saved'
+ file = request.files['img']
+ filename = secure_filename(file.filename)  
+ bucket='523-testimg'
+
+ s3_rekog=boto3.client(
+   "rekognition",  region_name='us-east-1',
+   aws_access_key_id=ACCESS_KEY,
+   aws_secret_access_key=SECRET_KEY
+)
+ 
+ text=s3_rekog.detect_text(Image={
+   'S3Object': 
+  {'Bucket':bucket,'Name': filename
+  } 
+ })
+ res = {
+  "textFound": text
+ }
+ return res
 
 if __name__ == '__main__':
     app.run('localhost', 80)
