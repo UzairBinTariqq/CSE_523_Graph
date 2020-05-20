@@ -244,26 +244,26 @@ def calculate_data_ink(img_path):
   return round(data_pixels/sum(hex_color_map.values()), 4), data_ink_map[0][2]
 
 
-def testing_aws_and_model(json_path):
+def _aws_and_model(j_data):
 
   global chart_h
   global chart_w
 
-  print(chart_w, chart_h)
+  # print(chart_w, chart_h)
 
-  # Opening JSON file 
-  f = open(json_path) 
-    
-  # returns JSON object as  
-  # a dictionary 
-  _data = json.load(f) 
-    
-  # Closing file 
-  f.close() 
+  _data = j_data
 
   chart_width = chart_w
   chart_height = chart_h
   _all_ftrs = []
+
+  data = {
+      'available': [],
+      'not_available': [],
+      'x_spread_ratio': 0,
+      'y_spread_ratio': 0,
+      '_all_boxes': []
+  }
 
   TextDetections = _data['TextDetections']
   for text in TextDetections:
@@ -286,15 +286,16 @@ def testing_aws_and_model(json_path):
       
       # top-left
       box['x'] = min(_all_x)
-      box['y'] = min(_all_y)
+      box['y'] = max(_all_y)
 
       # bottom-right
       box['x2'] = max(_all_x)
-      box['y2'] = max(_all_y)
+      box['y2'] = min(_all_y)
 
       box['w'] = max(_all_x) - min(_all_x)
       box['h'] = max(_all_y) - min(_all_y)
 
+      data['_all_boxes'].append([box['x'], box['y'], box['w'], box['h']])
       _all_ftrs.append(list(box.values()))
 
 
@@ -304,12 +305,6 @@ def testing_aws_and_model(json_path):
   regr2.fit(x_train, y_train)
   y_pred_r_2 = regr2.predict(df_test)
 
-  data = {
-      'available': [],
-      'not_available': [],
-      'x_spread_ratio': 0,
-      'y_spread_ratio': 0
-  }
   obtained_ftrs_set = set()
   for each in y_pred_r_2.tolist():
     if int(each[0]) not in obtained_ftrs_set:
@@ -362,11 +357,9 @@ def upload_file(file_name, bucket):
 def template():
     return render_template('index.html')
 
-@app.route('/chart_data', methods=['POST'])
-def chart_data():
-    try:
-
-        data = testing_aws_and_model('./data/testing_charts/test_01.json')
+def chart_data(json_data):
+ 
+        data = _aws_and_model(json_data)
 
         data['data_ink_ratio_value'] = data_ink_ratio
 
@@ -412,9 +405,7 @@ def chart_data():
         _all_score = data['data_ink_ratio_score'] + ((data['x_spread_ratio_score'] + data['y_spread_ratio_score']) / 2) + data['background_score'] + data['chart_elem_score']
         data['overall_score'] = round((_all_score / 400) * 100)
 
-    except:
-        e = sys.exc_info()
-    return json.dumps(data)
+        return data
 
   
 @app.route('/save_local', methods=['POST'])
@@ -454,26 +445,29 @@ def upload():
 
 @app.route('/recog', methods=['POST'])
 def lambda_handler():
+      try:
+        file = request.files['img']
+        filename = secure_filename(file.filename)  
+        bucket='523-testimg'
 
- file = request.files['img']
- filename = secure_filename(file.filename)  
- bucket='523-testimg'
+        s3_rekog=boto3.client(
+          "rekognition",  region_name='us-east-1',
+          aws_access_key_id=ACCESS_KEY,
+          aws_secret_access_key=SECRET_KEY
+        )
+        
+        text=s3_rekog.detect_text(Image={
+          'S3Object': 
+          {'Bucket':bucket,'Name': filename
+          } 
+        })
+        res = {
+          "textFound": text
+        }
 
- s3_rekog=boto3.client(
-   "rekognition",  region_name='us-east-1',
-   aws_access_key_id=ACCESS_KEY,
-   aws_secret_access_key=SECRET_KEY
-)
- 
- text=s3_rekog.detect_text(Image={
-   'S3Object': 
-  {'Bucket':bucket,'Name': filename
-  } 
- })
- res = {
-  "textFound": text
- }
- return res
-
+      except Exception as e:
+          return (str(e))
+      return json.dumps((chart_data(res["textFound"])))
+        
 if __name__ == '__main__':
     app.run('localhost', 80)

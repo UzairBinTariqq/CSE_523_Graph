@@ -68,10 +68,15 @@
         fetch('/recog', {
           method: 'POST',
           body: formData
-        }).then(data => {
+        })
+        .then(response => response.json())
+        .then(data => {
 
-          var table_available = data.available
-          var table_missing = data.not_available
+          // console.log(data)
+
+          var table_available = data.available;
+          var table_missing = data.not_available;
+          var chart_boxes = data._all_boxes;
 
           table_available.forEach(elem => {
             $('.'.concat(elem, '-available')).show();
@@ -117,6 +122,15 @@
 
           $(".img-fluid-custom").attr("src", "static/images/".concat(files[0].name));
 
+          //boxes
+
+          chart_boxes.forEach(elem => {
+
+            $(".boxes-all").append("<div style='border: 3px solid #d9534f; position: absolute; top:" + elem[1] + "px; left: " + elem[0] + "px; width: " + elem[2] + "px; height: " + elem[3] +"px;'>" );
+
+            
+          });
+        
           $('.content-01').hide();
           $('.content-02').show();
 
