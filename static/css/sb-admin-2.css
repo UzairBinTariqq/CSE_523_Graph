@@ -11039,4 +11039,8 @@ footer.sticky-footer {
   padding: 0px !important;
   width: unset !important;
 }
+
+.f-right {
+  float: right !important;
+}
 /* custom styles */

@@ -42,7 +42,7 @@ app = Flask(__name__)
 cors = CORS(app)
 
 app.secret_key = 'some_random_key'
-bucket_name = "523-testimg"
+bucket_name = "523-testing"
 app.config['CORS_HEADERS'] = 'Content-Type'
 
 s3 = boto3.client(
@@ -286,11 +286,11 @@ def _aws_and_model(j_data):
       
       # top-left
       box['x'] = min(_all_x)
-      box['y'] = max(_all_y)
+      box['y'] = min(_all_y)
 
       # bottom-right
       box['x2'] = max(_all_x)
-      box['y2'] = min(_all_y)
+      box['y2'] = max(_all_y)
 
       box['w'] = max(_all_x) - min(_all_x)
       box['h'] = max(_all_y) - min(_all_y)
@@ -401,11 +401,14 @@ def chart_data(json_data):
           data['y_spread_ratio_score'] = 25
           data['y_spread_ratio_comment'] = "Y-axis not spread or scaled properly."
         elif y_spread_ratio >= 0.05 and y_spread_ratio < 0.1:
-          data['y_spread_ratio_score'] = "Y-axis might not spread or scaled properly."
+          data['y_spread_ratio_score'] = 50
+          data['y_spread_ratio_comment'] = "Y-axis might not spread or scaled properly."
         elif y_spread_ratio >= 0.1 and y_spread_ratio < 0.2:
-          data['y_spread_ratio_score'] = "Y-axis seems good."
+          data['y_spread_ratio_score'] = 75
+          data['y_spread_ratio_comment'] = "Y-axis seems good."
         elif y_spread_ratio >= 0.2:
-          data['y_spread_ratio_score'] = "Y-axis is perfect!"
+          data['y_spread_ratio_score'] = 100
+          data['y_spread_ratio_comment'] = "Y-axis is perfect!"
 
         if background_shade == 'light':
           data['background_score'] = 100
@@ -446,7 +449,7 @@ def upload():
             filename = ''
             if img:
                 filename = secure_filename(img.filename)
-                # img.save(filename)
+                img.save(filename)
                 bucket_resource.upload_file(
                     Bucket = bucket_name,
                     Filename=filename,
@@ -455,33 +458,24 @@ def upload():
                 return 'Uploaded'
         except Exception as e:
             return (str(e))
-        return render_template("index.html")
 
 @app.route('/recog', methods=['POST'])
 def lambda_handler():
       try:
-        file = request.files['img']
-        filename = secure_filename(file.filename)  
-        bucket='523-testimg'
-
-        s3_rekog=boto3.client(
-          "rekognition",  region_name='us-east-1',
-          aws_access_key_id=ACCESS_KEY,
-          aws_secret_access_key=SECRET_KEY
-        )
+        filename = secure_filename(request.files['img'].filename)
         
-        text=s3_rekog.detect_text(Image={
-          'S3Object': 
-          {'Bucket':bucket,'Name': filename
-          } 
-        })
-        res = {
-          "textFound": text
-        }
+        f = open('./data/testing_charts/' + filename.split('.')[0] + '.json') 
+        
+      # returns JSON object as  
+      # a dictionary 
+        _data = json.load(f) 
+        
+      # Closing file 
+        f.close() 
 
       except Exception as e:
-          return (str(e))
-      return json.dumps((chart_data(res["textFound"])))
+        return (str(e))
+      return json.dumps((chart_data(_data)))
         
 if __name__ == '__main__':
     app.run('localhost', 80)
