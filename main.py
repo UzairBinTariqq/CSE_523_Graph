@@ -358,6 +358,9 @@ def template():
     return render_template('index.html')
 
 def chart_data(json_data):
+
+        global data_ink_ratio
+        global background_shade
  
         data = _aws_and_model(json_data)
 
@@ -365,12 +368,16 @@ def chart_data(json_data):
 
         if data_ink_ratio < 0.05:
           data['data_ink_ratio_score'] = 25
+          data['data_ink_ratio_comment'] = "Data-ink ratio is low. Consider adding more valid data."
         elif data_ink_ratio >= 0.05 and data_ink_ratio < 0.08:
           data['data_ink_ratio_score'] = 50
+          data['data_ink_ratio_comment'] = "Data-ink ratio is moderate. Consider adding more valid data."
         elif data_ink_ratio >= 0.08 and data_ink_ratio < 0.15:
           data['data_ink_ratio_score'] = 75
+          data['data_ink_ratio_comment'] = "Data-ink ratio is good."
         elif data_ink_ratio >= 0.15:
           data['data_ink_ratio_score'] = 100
+          data['data_ink_ratio_comment'] = "Data-ink is perfect!"
 
         data['chart_elem_score'] = round((len(data['available'])/(len(data['available']) + len(data['not_available']))) * 100)
         
@@ -379,26 +386,33 @@ def chart_data(json_data):
 
         if x_spread_ratio < 0.1:
           data['x_spread_ratio_score'] = 25
+          data['x_spread_ratio_comment'] = "X-axis not spread or scaled properly."
         elif x_spread_ratio >= 0.1 and x_spread_ratio < 0.2:
           data['x_spread_ratio_score'] = 50
+          data['x_spread_ratio_comment'] = "X-axis might not spread or scaled properly."
         elif x_spread_ratio >= 0.2 and x_spread_ratio < 0.3:
           data['x_spread_ratio_score'] = 75
+          data['x_spread_ratio_comment'] = "X-axis seems good."
         elif x_spread_ratio >= 0.3:
           data['x_spread_ratio_score'] = 100
+          data['x_spread_ratio_comment'] = "X-axis is perfect!"
 
         if y_spread_ratio < 0.05:
           data['y_spread_ratio_score'] = 25
+          data['y_spread_ratio_comment'] = "Y-axis not spread or scaled properly."
         elif y_spread_ratio >= 0.05 and y_spread_ratio < 0.1:
-          data['y_spread_ratio_score'] = 50
+          data['y_spread_ratio_score'] = "Y-axis might not spread or scaled properly."
         elif y_spread_ratio >= 0.1 and y_spread_ratio < 0.2:
-          data['y_spread_ratio_score'] = 75
+          data['y_spread_ratio_score'] = "Y-axis seems good."
         elif y_spread_ratio >= 0.2:
-          data['y_spread_ratio_score'] = 100
+          data['y_spread_ratio_score'] = "Y-axis is perfect!"
 
         if background_shade == 'light':
           data['background_score'] = 100
+          data['background_score_comment'] = "Good background choice."
         else:
           data['background_score'] = 50
+          data['background_score_comment'] = "Poor background choice."
 
         data['spacing_score'] = (data['x_spread_ratio_score'] + data['y_spread_ratio_score']) / 2
 
@@ -432,7 +446,7 @@ def upload():
             filename = ''
             if img:
                 filename = secure_filename(img.filename)
-                img.save(filename)
+                # img.save(filename)
                 bucket_resource.upload_file(
                     Bucket = bucket_name,
                     Filename=filename,
