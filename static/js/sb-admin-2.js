@@ -95,6 +95,12 @@
           $(".background-bar").css("width", String(data.background_score).concat("%"));
           $(".overall-bar").css("width", String(data.overall_score).concat("%"));
 
+          $(".data-ink-p").html(String(data.data_ink_ratio_score).concat("%"))
+          $(".spacing-p").html(String(data.spacing_score).concat("%"))
+          $(".chart-elem-p").html(String(data.chart_elem_score).concat("%"))
+          $(".background-p").html(String(data.background_score).concat("%"))
+          $(".overall-p").html(String(data.overall_score).concat("%"))
+
           $(".data-ink-comment").html(data.data_ink_ratio_comment)
           $(".bck-comment").html(data.background_score_comment)
           // $(".x-axis-comment").html(data.x_spread_ratio_comment)
